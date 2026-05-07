@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Unit 1, Day 4 — Zombie Capture Checker</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#F4F1EC;--surface:#FFF;--border:#D6D0C4;--text:#2C2A26;--muted:#7A756B;--accent:#1B6B93;--accent-lt:#E8F1F5;--ok:#3A7D44;--ok-lt:#E6F2E8;--warn:#C4841D;--warn-lt:#FDF3E4;--err:#B33A3A;--err-lt:#FBEAEA}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);line-height:1.6;min-height:100vh}
+.hdr{background:#1A2332;color:#E8E4DD;padding:14px 20px;position:sticky;top:0;z-index:100}
+.hdr h1{font-size:1.1rem;font-weight:600}.hdr .sub{font-size:.72rem;color:#8A9BB0;margin-top:1px}
+.nav-row{display:flex;gap:6px;margin-top:10px;align-items:center}
+.nav-label{font-size:.68rem;color:#8A9BB0;text-transform:uppercase;letter-spacing:.08em;font-weight:600;margin-right:4px}
+.nav-btn{padding:6px 16px;border-radius:8px;font-family:'JetBrains Mono',monospace;font-size:.78rem;font-weight:600;border:2px solid #3A4556;color:#8A9BB0;background:transparent;cursor:pointer;transition:all .15s}
+.nav-btn:hover{border-color:#8A9BB0;color:#E8E4DD}
+.nav-btn.active{border-color:var(--accent);color:#fff;background:var(--accent)}
+.nav-btn.complete{border-color:var(--ok);color:#fff;background:var(--ok)}
+.sub-row{display:flex;gap:6px;margin-top:8px;align-items:center;flex-wrap:wrap}
+.sub-btn{padding:4px 14px;border-radius:6px;font-family:'JetBrains Mono',monospace;font-size:.72rem;font-weight:600;border:1.5px solid #3A4556;color:#6A7B8F;background:transparent;cursor:pointer;transition:all .15s}
+.sub-btn:hover{border-color:#8A9BB0;color:#E8E4DD}
+.sub-btn.active{border-color:#E8E4DD;color:#E8E4DD;background:#2A3A4E}
+.sub-btn.complete{border-color:var(--ok);color:#fff;background:var(--ok)}
+.main{max-width:560px;margin:0 auto;padding:16px 16px 60px}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:14px}
+.card h3{font-size:.95rem;font-weight:600;margin-bottom:2px}
+.transform-label{font-family:'JetBrains Mono',monospace;font-size:.82rem;color:var(--accent);font-weight:500;margin-bottom:14px;padding:8px 12px;background:var(--accent-lt);border-radius:8px}
+.step-label{font-size:.72rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;margin-top:16px}
+.step-label:first-of-type{margin-top:0}
+
+/* Rule chips */
+.chip-zone{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
+.chip{padding:10px 16px;border:2px solid var(--border);border-radius:10px;background:var(--surface);cursor:pointer;transition:all .18s;user-select:none;font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:500}
+.chip:hover{border-color:var(--accent);background:var(--accent-lt);transform:translateY(-2px)}
+.chip:active{transform:scale(.95)}
+.chip.used{opacity:.25;pointer-events:none}
+.drop-target{border:2px dashed var(--border);border-radius:10px;padding:12px 20px;min-height:52px;display:flex;align-items:center;justify-content:center;transition:all .2s;margin-bottom:8px}
+.drop-target .placeholder{font-size:.82rem;color:var(--muted);font-style:italic}
+.drop-target.filled{border-style:solid;border-color:var(--accent);background:var(--accent-lt);cursor:pointer}
+.drop-target.correct{border-color:var(--ok);background:var(--ok-lt)}
+.drop-target.wrong{border-color:var(--err);background:var(--err-lt);animation:shake .4s}
+.drop-target .rule-text{font-family:'JetBrains Mono',monospace;font-size:.92rem;font-weight:500}
+@keyframes shake{0%,100%{transform:translateX(0)}20%{transform:translateX(-6px)}40%{transform:translateX(6px)}60%{transform:translateX(-4px)}80%{transform:translateX(4px)}}
+
+/* Coordinate inputs */
+.coord-section{margin-top:14px}
+.coord-section.locked{opacity:.3;pointer-events:none}
+.section-label{font-size:.78rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px}
+.coord-row{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.coord-row .vlabel{font-family:'JetBrains Mono',monospace;font-size:.76rem;font-weight:600;color:var(--muted);width:20px;text-align:right}
+.coord-pair{display:inline-flex;align-items:center;gap:1px;font-family:'JetBrains Mono',monospace;font-size:.92rem}
+.coord-pair::before{content:'('}
+.coord-pair::after{content:')'}
+.ci{font-family:'JetBrains Mono',monospace;font-size:.92rem;font-weight:500;padding:6px 4px;border:2px solid var(--border);border-radius:6px;width:48px;text-align:center;transition:border-color .2s,background .2s}
+.ci:focus{outline:none;border-color:var(--accent)}
+.ci.ok{border-color:var(--ok);background:var(--ok-lt)}
+.ci.err{border-color:var(--err);background:var(--err-lt)}
+.sep{margin:0 2px;color:var(--muted)}
+.expected{font-family:'JetBrains Mono',monospace;font-size:.72rem;color:var(--err);margin-left:8px}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:10px 20px;border:none;border-radius:8px;font-family:'DM Sans',sans-serif;font-size:.88rem;font-weight:600;cursor:pointer;transition:all .15s}
+.btn-primary{background:var(--accent);color:#fff}.btn-primary:hover{background:#145A7A}
+.btn-reset{background:transparent;color:var(--muted);border:1.5px solid var(--border);margin-left:8px}.btn-reset:hover{border-color:var(--text);color:var(--text)}
+.actions{display:flex;align-items:center;gap:8px;margin-top:16px}
+.fb{padding:10px 14px;border-radius:8px;font-size:.88rem;margin-top:12px;line-height:1.5}
+.fb.ok{background:var(--ok-lt);color:var(--ok);border:1px solid var(--ok)}
+.fb.err{background:var(--err-lt);color:var(--err);border:1px solid var(--err)}
+.fb.warn{background:var(--warn-lt);color:var(--warn);border:1px solid var(--warn)}
+.redirect-banner{background:#FFF3E0;border:2px solid #E65100;border-radius:10px;padding:14px 16px;margin-top:10px;font-size:.9rem;line-height:1.5;color:#BF360C}
+</style>
+</head>
+<body>
+<div class="hdr">
+<div><h1>Zombie Capture — Checker</h1><div class="sub">Unit 1, Day 4 · Geometry 1</div></div>
+<div class="nav-row">
+<span class="nav-label">Shape</span>
+<button class="nav-btn active" onclick="pickShape(0)">A</button>
+<button class="nav-btn" onclick="pickShape(1)">B</button>
+<button class="nav-btn" onclick="pickShape(2)">C</button>
+<button class="nav-btn" onclick="pickShape(3)">D</button>
+</div>
+<div class="sub-row" id="sub-row"></div>
+</div>
+<div class="main" id="main"></div>
+
+<script>
+// ── Transformation functions ──
+const T = {
+  reflectY:  (x,y) => [-x, y],
+  reflectX:  (x,y) => [x, -y],
+  rot90CCW:  (x,y) => [-y, x],
+  rot90CW:   (x,y) => [y, -x],
+  rot180:    (x,y) => [-x, -y],
+  transA:    (x,y) => [x+7, y-18],
+  transB:    (x,y) => [x+5, y+15],
+  transC:    (x,y) => [x-20, y],
+  transD:    (x,y) => [x, y-9],
+};
+
+// ── Rule chips: the full set students choose from ──
+const RULES = [
+  { id:'reflectY', label:'(x, y) → (−x, y)',    name:'Reflect over y-axis' },
+  { id:'reflectX', label:'(x, y) → (x, −y)',    name:'Reflect over x-axis' },
+  { id:'rot90CCW', label:'(x, y) → (−y, x)',    name:'Rotate 90° CCW' },
+  { id:'rot90CW',  label:'(x, y) → (y, −x)',    name:'Rotate 90° CW' },
+  { id:'rot180',   label:'(x, y) → (−x, −y)',   name:'Rotate 180°' },
+  { id:'trans',    label:'(x, y) → (x+a, y+b)', name:'Translation' },
+];
+
+// ── Shape & problem definitions ──
+const SHAPES = [
+  { letter:'A', nVerts:4, problems:[
+    {num:1,  from:'A',  to:'A′',  desc:'Reflect figure A over the y-axis',              fn:T.reflectY, ruleId:'reflectY'},
+    {num:2,  from:'A′', to:'A″',  desc:'Translate figure A′ right 7 and down 18',       fn:T.transA,   ruleId:'trans'},
+    {num:3,  from:'A″', to:'A‴',  desc:'Rotate figure A″ 90° counterclockwise',         fn:T.rot90CCW, ruleId:'rot90CCW'},
+  ]},
+  { letter:'B', nVerts:5, problems:[
+    {num:4,  from:'B',  to:'B′',  desc:'Rotate figure B 90° clockwise',                 fn:T.rot90CW,  ruleId:'rot90CW'},
+    {num:5,  from:'B′', to:'B″',  desc:'Translate figure B′ right 5 and up 15',         fn:T.transB,   ruleId:'trans'},
+    {num:6,  from:'B″', to:'B‴',  desc:'Reflect figure B″ over the y-axis',             fn:T.reflectY, ruleId:'reflectY'},
+  ]},
+  { letter:'C', nVerts:3, problems:[
+    {num:7,  from:'C',  to:'C′',  desc:'Rotate figure C 180° counterclockwise',         fn:T.rot180,   ruleId:'rot180'},
+    {num:8,  from:'C′', to:'C″',  desc:'Reflect figure C′ over the x-axis',             fn:T.reflectX, ruleId:'reflectX'},
+    {num:9,  from:'C″', to:'C‴',  desc:'Translate figure C″ left 20 units',             fn:T.transC,   ruleId:'trans'},
+  ]},
+  { letter:'D', nVerts:4, problems:[
+    {num:10, from:'D',  to:'D′',  desc:'Reflect figure D over the x-axis',              fn:T.reflectX, ruleId:'reflectX'},
+    {num:11, from:'D′', to:'D″',  desc:'Rotate figure D′ 180° clockwise',               fn:T.rot180,   ruleId:'rot180'},
+    {num:12, from:'D″', to:'D‴',  desc:'Translate figure D″ down 9 units',              fn:T.transD,   ruleId:'trans'},
+  ]}
+];
+
+let curShape = 0, curProb = 0;
+let stuckCounts = {};
+let completed = {};
+let ruleUnlocked = {};
+
+function key() { return `s${curShape}p${curProb}`; }
+
+function pickShape(si) {
+  curShape = si; curProb = 0;
+  document.querySelectorAll('.nav-btn').forEach((b,i) => b.classList.toggle('active', i===si));
+  updateSubRow(); buildCard();
+}
+
+function pickProb(pi) {
+  curProb = pi;
+  document.querySelectorAll('.sub-btn').forEach((b,i) => b.classList.toggle('active', i===pi));
+  buildCard();
+}
+
+function updateSubRow() {
+  const s = SHAPES[curShape];
+  const row = document.getElementById('sub-row');
+  let html = '<span class="nav-label">Problem</span>';
+  s.problems.forEach((p,i) => {
+    const done = completed[`s${curShape}p${i}`] ? ' complete' : '';
+    const act = i===curProb ? ' active' : '';
+    html += `<button class="sub-btn${act}${done}" onclick="pickProb(${i})">#${p.num} → ${p.to}</button>`;
+  });
+  row.innerHTML = html;
+}
+
+function buildCard() {
+  const s = SHAPES[curShape];
+  const p = s.problems[curProb];
+  const k = key();
+  if (!stuckCounts[k]) stuckCounts[k] = 0;
+  const unlocked = !!ruleUnlocked[k];
+  const main = document.getElementById('main');
+
+  let html = `<div class="card">`;
+  html += `<h3>#${p.num}.) ${p.desc}</h3>`;
+  html += `<div class="transform-label">${p.from} → ${p.to}</div>`;
+
+  // ── Step 1: Rule selection ──
+  html += `<div class="step-label">Step 1 — Which rule?</div>`;
+
+  if (unlocked) {
+    // Show locked-in correct rule
+    const rule = RULES.find(r => r.id === p.ruleId);
+    html += `<div class="drop-target correct"><span class="rule-text">${rule.label}</span></div>`;
+  } else {
+    // Drop target
+    html += `<div class="drop-target" id="drop"><span class="placeholder">Tap the correct rule below</span></div>`;
+    html += `<div id="rule-fb"></div>`;
+    // Chips — shuffled
+    const shuffled = [...RULES].sort(() => Math.random() - 0.5);
+    html += `<div class="chip-zone">`;
+    shuffled.forEach(r => {
+      html += `<div class="chip" data-rule="${r.id}" onclick="tryRule('${r.id}')">${r.label}</div>`;
+    });
+    html += `</div>`;
+  }
+
+  // ── Step 2: Coordinates (locked until rule is correct) ──
+  html += `<div class="coord-section${unlocked ? '' : ' locked'}" id="coord-section">`;
+  html += `<div class="step-label">Step 2 — Enter coordinates</div>`;
+
+  html += `<div class="section-label">Enter ${p.from} coordinates</div>`;
+  for (let v = 0; v < s.nVerts; v++) {
+    html += coordRow('i', v);
+  }
+
+  html += `<div class="section-label" style="margin-top:14px">Enter ${p.to} coordinates</div>`;
+  for (let v = 0; v < s.nVerts; v++) {
+    html += coordRow('o', v, true);
+  }
+
+  html += `<div class="actions">`;
+  html += `<button class="btn btn-primary" onclick="checkCoords()">Check</button>`;
+  html += `<button class="btn btn-reset" onclick="resetProb()">Reset</button>`;
+  html += `</div>`;
+  html += `<div id="fb"></div>`;
+  html += `</div>`; // coord-section
+
+  html += `</div>`; // card
+  main.innerHTML = html;
+
+  // Enter key navigation
+  if (unlocked) {
+    const inputs = main.querySelectorAll('.ci');
+    inputs.forEach((inp, i) => {
+      inp.addEventListener('keydown', e => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          if (i + 1 < inputs.length) inputs[i+1].focus();
+          else checkCoords();
+        }
+      });
+    });
+  }
+}
+
+function coordRow(prefix, v, showExp) {
+  let html = `<div class="coord-row">
+    <span class="vlabel">${v+1}</span>
+    <span class="coord-pair">
+      <input class="ci" id="${prefix}x${v}" inputmode="numeric" pattern="-?[0-9]*" autocomplete="off">
+      <span class="sep">,</span>
+      <input class="ci" id="${prefix}y${v}" inputmode="numeric" pattern="-?[0-9]*" autocomplete="off">
+    </span>`;
+  if (showExp) html += `<span class="expected" id="exp${v}"></span>`;
+  html += `</div>`;
+  return html;
+}
+
+function tryRule(ruleId) {
+  const s = SHAPES[curShape];
+  const p = s.problems[curProb];
+  const k = key();
+  const drop = document.getElementById('drop');
+  const ruleFb = document.getElementById('rule-fb');
+  const rule = RULES.find(r => r.id === ruleId);
+
+  // Fill drop target
+  drop.innerHTML = `<span class="rule-text">${rule.label}</span>`;
+  drop.classList.add('filled');
+  drop.classList.remove('correct','wrong');
+
+  // Mark chip as used
+  document.querySelectorAll('.chip').forEach(c => c.classList.remove('used'));
+  document.querySelector(`.chip[data-rule="${ruleId}"]`).classList.add('used');
+
+  // Check
+  setTimeout(() => {
+    if (ruleId === p.ruleId) {
+      drop.classList.add('correct');
+      drop.classList.remove('filled');
+      ruleFb.innerHTML = `<div class="fb ok" style="margin-top:8px;margin-bottom:4px">✓ Correct rule!</div>`;
+      ruleUnlocked[k] = true;
+      // Rebuild to unlock coordinates
+      setTimeout(() => buildCard(), 600);
+    } else {
+      drop.classList.add('wrong');
+      drop.classList.remove('filled');
+      // Reset after shake
+      setTimeout(() => {
+        drop.innerHTML = `<span class="placeholder">Tap the correct rule below</span>`;
+        drop.classList.remove('wrong');
+        document.querySelectorAll('.chip').forEach(c => c.classList.remove('used'));
+      }, 800);
+
+      if (!stuckCounts[k+'_rule']) stuckCounts[k+'_rule'] = 0;
+      stuckCounts[k+'_rule']++;
+
+      if (stuckCounts[k+'_rule'] >= 3) {
+        ruleFb.innerHTML = `<div class="fb err" style="margin-top:8px">Look at your reference sheet — what does "${p.desc.split('figure')[0].trim()}" do to (x, y)?</div>`;
+      } else {
+        ruleFb.innerHTML = `<div class="fb err" style="margin-top:8px">Not that rule. Read the problem again — what transformation is it asking for?</div>`;
+      }
+    }
+  }, 200);
+}
+
+function getVal(id) {
+  const el = document.getElementById(id);
+  if (!el) return NaN;
+  const v = el.value.trim();
+  if (v === '' || v === '-') return NaN;
+  return Number.isFinite(Number(v)) ? Number(v) : NaN;
+}
+
+function checkCoords() {
+  const s = SHAPES[curShape];
+  const p = s.problems[curProb];
+  const k = key();
+  const fb = document.getElementById('fb');
+
+  // Clear
+  for (let v = 0; v < s.nVerts; v++) {
+    for (const pre of ['ix','iy','ox','oy']) {
+      const el = document.getElementById(pre+v);
+      if (el) el.classList.remove('ok','err');
+    }
+    const expEl = document.getElementById('exp'+v);
+    if (expEl) expEl.textContent = '';
+  }
+
+  // Read inputs
+  let inputs = [], outputs = [];
+  let missingIn = false, missingOut = false;
+  for (let v = 0; v < s.nVerts; v++) {
+    const ix = getVal('ix'+v), iy = getVal('iy'+v);
+    const ox = getVal('ox'+v), oy = getVal('oy'+v);
+    if (isNaN(ix) || isNaN(iy)) missingIn = true;
+    if (isNaN(ox) || isNaN(oy)) missingOut = true;
+    inputs.push([ix, iy]);
+    outputs.push([ox, oy]);
+  }
+
+  if (missingIn) {
+    fb.innerHTML = `<div class="fb warn">Enter all ${p.from} coordinates first.</div>`;
+    return;
+  }
+  if (missingOut) {
+    fb.innerHTML = `<div class="fb warn">Enter all ${p.to} coordinates first.</div>`;
+    return;
+  }
+
+  // Compare
+  let correct = 0;
+  for (let v = 0; v < s.nVerts; v++) {
+    const [ex, ey] = p.fn(inputs[v][0], inputs[v][1]);
+    const xOk = outputs[v][0] === ex;
+    const yOk = outputs[v][1] === ey;
+    const oxEl = document.getElementById('ox'+v);
+    const oyEl = document.getElementById('oy'+v);
+
+    if (xOk && yOk) {
+      correct++;
+      oxEl.classList.add('ok');
+      oyEl.classList.add('ok');
+    } else {
+      oxEl.classList.add(xOk ? 'ok' : 'err');
+      oyEl.classList.add(yOk ? 'ok' : 'err');
+    }
+  }
+
+  if (correct === s.nVerts) {
+    fb.innerHTML = `<div class="fb ok">✓ All ${correct} vertices correct!</div>`;
+    completed[k] = true;
+    updateSubRow();
+    if ([0,1,2].every(i => completed[`s${curShape}p${i}`])) {
+      document.querySelectorAll('.nav-btn')[curShape].classList.add('complete');
+    }
+  } else {
+    stuckCounts[k] = (stuckCounts[k]||0) + 1;
+    const att = stuckCounts[k];
+    let msg = `${correct} of ${s.nVerts} vertices correct.`;
+
+    if (att === 1) {
+      fb.innerHTML = `<div class="fb err">${msg} Re-check the red cells — apply the rule to your ${p.from} coordinates.</div>`;
+    } else if (att === 2) {
+      const rule = RULES.find(r => r.id === p.ruleId);
+      fb.innerHTML = `<div class="fb err">${msg} Remember: the rule is <strong>${rule.label}</strong>. Apply it to each ${p.from} vertex.</div>`;
+    } else {
+      for (let v = 0; v < s.nVerts; v++) {
+        const [ex, ey] = p.fn(inputs[v][0], inputs[v][1]);
+        const oxEl = document.getElementById('ox'+v);
+        const oyEl = document.getElementById('oy'+v);
+        if (oxEl.classList.contains('err') || oyEl.classList.contains('err')) {
+          document.getElementById('exp'+v).textContent = `→ (${ex}, ${ey})`;
+        }
+      }
+      fb.innerHTML = `<div class="fb err">${msg} Expected values shown.</div>`;
+      fb.innerHTML += `<div class="redirect-banner">Still stuck? Raise your hand — let's work through one vertex together.</div>`;
+    }
+  }
+}
+
+function resetProb() {
+  const k = key();
+  stuckCounts[k] = 0;
+  delete stuckCounts[k+'_rule'];
+  delete ruleUnlocked[k];
+  delete completed[k];
+  updateSubRow();
+  document.querySelectorAll('.nav-btn')[curShape].classList.remove('complete');
+  buildCard();
+}
+
+pickShape(0);
+</script>
+</body>
+</html>
